@@ -8,16 +8,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const navItems = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Overview", href: "/overview" },
-  { label: "Inbox", href: "/inbox" },
-  { label: "Campaigns", href: "/campaigns" },
-  { label: "DM Logs", href: "/logs" },
-  { label: "Settings", href: "/settings" },
-  { label: "Diagnostics", href: "/diagnostics" },
-];
+import { useI18n } from "@/lib/i18n/context";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -31,6 +22,17 @@ export default function Sidebar({
   workspaceName,
 }: SidebarProps) {
   const pathname = usePathname();
+  const { t } = useI18n();
+
+  const navItems = [
+    { label: t.nav.dashboard, href: "/dashboard" },
+    { label: t.nav.overview, href: "/overview" },
+    { label: t.nav.inbox, href: "/inbox" },
+    { label: t.nav.campaigns, href: "/campaigns" },
+    { label: t.nav.logs, href: "/logs" },
+    { label: t.nav.settings, href: "/settings" },
+    { label: t.nav.diagnostics, href: "/diagnostics" },
+  ];
 
   return (
     <>
@@ -88,7 +90,7 @@ export default function Sidebar({
 
         <div className="px-5 py-4 border-t border-border">
           <p className="text-sm text-foreground truncate">{workspaceName}</p>
-          <p className="text-xs text-muted">Self-hosted</p>
+          <p className="text-xs text-muted">{t.nav.selfHosted}</p>
         </div>
       </aside>
     </>

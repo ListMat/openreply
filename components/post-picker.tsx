@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { readCache, writeCache } from "@/lib/client-cache";
+import { useI18n } from "@/lib/i18n/context";
 
 const PAGE_SIZE = 60;
 
@@ -43,15 +44,13 @@ export default function PostPicker({
   usedPostIds,
   onSelect,
 }: PostPickerProps) {
+  const { t, locale } = useI18n();
   const [posts, setPosts] = useState<InstagramPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   // The post currently hovered — its video (if it's a reel) plays a preview.
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  // The grid loads the whole library (all=true). On accounts with hundreds of
-  // posts, rendering every tile at once is enough to make mobile Safari drop
-  // the page, so they are revealed in batches.
   const [shown, setShown] = useState(PAGE_SIZE);
 
   useEffect(() => {
@@ -101,8 +100,11 @@ export default function PostPicker({
   if (loading) {
     return (
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-        {[...Array(8)].map((_, i) => (
-          <div key={i} className="aspect-square rounded bg-surface" />
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={i}
+            className="aspect-square rounded bg-surface border border-border animate-pulse"
+          />
         ))}
       </div>
     );
@@ -112,7 +114,13 @@ export default function PostPicker({
     return (
       <div className="text-center py-8">
         <p className="text-sm text-muted">{error}</p>
-        <p className="text-xs text-zinc-500 mt-1">Connect your Instagram account first</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 text-xs text-accent hover:underline"
+        >
+          {locale === "pt-BR" ? "Tentar novamente" : "Try again"}
+        </button>
       </div>
     );
   }
@@ -120,7 +128,7 @@ export default function PostPicker({
   if (posts.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-sm text-muted">No posts found</p>
+        <p className="text-sm text-muted">{t.builder.noPostsFound}</p>
       </div>
     );
   }
@@ -146,21 +154,23 @@ export default function PostPicker({
             // cleared, which is the case this whole change exists to avoid.
             setShown(PAGE_SIZE);
           }}
-          placeholder="Search your posts by caption…"
+          placeholder={t.builder.searchPostsPlaceholder}
           className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
         />
         <span className="shrink-0 text-xs text-muted">{posts.length}</span>
       </div>
       {visible.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted">
-          No posts match &ldquo;{query}&rdquo;
+          {locale === "pt-BR"
+            ? `Nenhum post corresponde a "${query}"`
+            : `No posts match "${query}"`}
         </p>
       ) : (
         <>
           {usedPostIds && Object.keys(usedPostIds).length > 0 && (
             <p className="flex items-center gap-1.5 px-1 text-[11px] text-muted">
               <span className="inline-block h-2.5 w-2.5 rounded-sm border border-warning/50" />
-              Already used
+              {locale === "pt-BR" ? "Já utilizado" : "Already used"}
             </p>
           )}
           {/* auto-rows-min + content-start keep each row at its natural height.
@@ -185,7 +195,7 @@ export default function PostPicker({
               setHoveredId((cur) => (cur === post.id ? null : cur))
             }
             aria-pressed={isSelected}
-            title={isUsed ? `Already used by "${usedByName}"` : undefined}
+            title={isUsed ? (locale === "pt-BR" ? `Já utilizado por "${usedByName}"` : `Already used by "${usedByName}"`) : undefined}
             className={`
               relative aspect-square rounded overflow-hidden border-2
               ${
@@ -207,7 +217,7 @@ export default function PostPicker({
               />
             ) : (
               <div className="w-full h-full bg-surface flex items-center justify-center">
-                <span className="text-xs text-muted">No image</span>
+                <span className="text-xs text-muted">{locale === "pt-BR" ? "Sem imagem" : "No image"}</span>
               </div>
             )}
             {showVideo && (
@@ -226,7 +236,7 @@ export default function PostPicker({
             )}
             {isSelected && (
               <span className="absolute bottom-0 inset-x-0 bg-accent text-white text-xs py-1">
-                Selected
+                {locale === "pt-BR" ? "Selecionado" : "Selected"}
               </span>
             )}
           </button>
@@ -239,7 +249,9 @@ export default function PostPicker({
               onClick={() => setShown((n) => n + PAGE_SIZE)}
               className="w-full rounded-lg border border-border py-2 text-sm text-muted hover:text-foreground"
             >
-              Show {Math.min(PAGE_SIZE, remaining)} more
+              {locale === "pt-BR"
+                ? `Mostrar mais ${Math.min(PAGE_SIZE, remaining)}`
+                : `Show ${Math.min(PAGE_SIZE, remaining)} more`}
             </button>
           )}
         </>

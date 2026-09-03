@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AccountSelect, { type AccountOption } from "@/components/account-select";
 import { readCache, writeCache } from "@/lib/client-cache";
+import { useI18n } from "@/lib/i18n/context";
 
 interface Campaign {
   id: string;
@@ -64,16 +65,13 @@ interface Campaign {
 
 export default function CampaignsPage() {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const [automations, setAutomations] = useState<Campaign[]>([]);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState("all");
   const [loading, setLoading] = useState(true);
-  // postId -> current thumbnail URL, fetched live (Instagram URLs expire, so
-  // they are never stored on the campaign).
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  // postId -> video URL for reels, so a campaign thumbnail can play on click.
   const [videos, setVideos] = useState<Record<string, string>>({});
-  // The reel currently playing in the lightbox (null when closed).
   const [playingVideo, setPlayingVideo] = useState<{
     url: string;
     postUrl: string | null;
@@ -307,9 +305,9 @@ export default function CampaignsPage() {
           <p className="text-sm text-muted">
             {filtered.length}
             {filtered.length !== automations.length
-              ? ` of ${automations.length}`
+              ? ` ${locale === "pt-BR" ? "de" : "of"} ${automations.length}`
               : ""}{" "}
-            campaign{automations.length !== 1 ? "s" : ""}
+            {filtered.length === 1 ? (locale === "pt-BR" ? "campanha" : "campaign") : (locale === "pt-BR" ? "campanhas" : "campaigns")}
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
@@ -324,13 +322,13 @@ export default function CampaignsPage() {
             href="/campaigns/import"
             className="flex-1 rounded border border-border px-4 py-2 text-center text-sm font-medium text-muted hover:text-foreground sm:flex-none"
           >
-            Import
+            {locale === "pt-BR" ? "Importar CSV" : "Import"}
           </Link>
           <Link
             href="/campaigns/new"
             className="flex-1 rounded bg-accent px-4 py-2 text-center text-sm font-medium text-white hover:bg-accent-hover sm:flex-none"
           >
-            New Campaign
+            {t.campaigns.newCampaign}
           </Link>
         </div>
       </div>
@@ -341,7 +339,7 @@ export default function CampaignsPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search campaigns by name, keyword, or message…"
+            placeholder={t.campaigns.searchCampaigns}
             className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
           />
           <div className="inline-flex shrink-0 rounded-lg bg-surface p-1">
@@ -356,7 +354,11 @@ export default function CampaignsPage() {
                     : "text-muted hover:text-foreground"
                 }`}
               >
-                {s}
+                {s === "all"
+                  ? (locale === "pt-BR" ? "Todas" : "All")
+                  : s === "active"
+                  ? t.campaigns.active
+                  : t.campaigns.paused}
               </button>
             ))}
           </div>
@@ -366,15 +368,15 @@ export default function CampaignsPage() {
       {/* Empty state */}
       {automations.length === 0 && (
         <div className="panel rounded p-8 text-center sm:p-12">
-          <h3 className="text-lg font-semibold mb-2">No campaigns yet</h3>
+          <h3 className="text-lg font-semibold mb-2">{t.campaigns.noCampaigns}</h3>
           <p className="text-sm text-muted mb-6 max-w-sm mx-auto">
-            Create your first comment-to-DM campaign to turn a post or reel into a measurable conversation flow.
+            {t.campaigns.noCampaignsSubtitle}
           </p>
           <Link
             href="/campaigns/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded bg-accent text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
+            className="inline-flex items-center gap-2 rounded bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent-hover"
           >
-            Create Campaign
+            {t.campaigns.newCampaign}
           </Link>
         </div>
       )}

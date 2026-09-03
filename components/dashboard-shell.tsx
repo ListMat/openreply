@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/top-bar";
+import { LanguageProvider } from "@/lib/i18n/context";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -20,9 +21,8 @@ export default function DashboardShell({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    // h-dvh, not h-screen: on mobile browsers the URL bar eats into 100vh, which
-    // would push the composer and pagination controls below the fold.
-    <div className="flex h-dvh overflow-hidden bg-background">
+    <LanguageProvider>
+      <div className="flex h-dvh overflow-hidden bg-background">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -46,5 +46,6 @@ export default function DashboardShell({
         </main>
       </div>
     </div>
+    </LanguageProvider>
   );
 }

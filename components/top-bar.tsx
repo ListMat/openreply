@@ -7,17 +7,7 @@
  */
 
 import { usePathname } from "next/navigation";
-
-const pageTitles: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/campaigns": "Campaigns",
-  "/campaigns/new": "New Campaign",
-  "/automations": "Campaigns",
-  "/automations/new": "New Campaign",
-  "/logs": "DM Logs",
-  "/settings": "Settings",
-  "/diagnostics": "Diagnostics",
-};
+import { useI18n } from "@/lib/i18n/context";
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -31,7 +21,22 @@ export default function TopBar({
   instagramAccountCount,
 }: TopBarProps) {
   const pathname = usePathname();
-  const title = pageTitles[pathname] ?? "Dashboard";
+  const { t, locale, setLocale } = useI18n();
+
+  const getPageTitle = (path: string): string => {
+    if (path === "/dashboard") return t.nav.dashboard;
+    if (path === "/overview") return t.nav.overview;
+    if (path === "/inbox") return t.nav.inbox;
+    if (path === "/campaigns" || path === "/automations") return t.nav.campaigns;
+    if (path === "/campaigns/new" || path === "/automations/new") return t.builder.newTitle;
+    if (path.startsWith("/campaigns/") || path.startsWith("/automations/")) return t.builder.editTitle;
+    if (path === "/logs") return t.nav.logs;
+    if (path === "/settings") return t.nav.settings;
+    if (path === "/diagnostics") return t.nav.diagnostics;
+    return t.nav.dashboard;
+  };
+
+  const title = getPageTitle(pathname);
 
   return (
     <header
@@ -55,22 +60,32 @@ export default function TopBar({
         <h1 className="truncate text-base font-semibold sm:text-lg">{title}</h1>
       </div>
 
-      {instagramAccountCount > 0 ? (
-        <p className="shrink-0 truncate text-sm text-muted">
-          {instagramAccountCount > 1
-            ? `${instagramAccountCount} accounts`
-            : `@${instagramUsername}`}
-        </p>
-      ) : (
-        <a
-          href="/api/instagram/connect"
-          className="shrink-0 whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded bg-accent text-white hover:bg-accent-hover"
+      <div className="flex items-center gap-3">
+        {/* Quick language toggle */}
+        <button
+          onClick={() => setLocale(locale === "pt-BR" ? "en" : "pt-BR")}
+          className="px-2 py-1 text-xs font-medium rounded border border-border bg-surface text-muted hover:text-foreground hover:bg-surface-hover transition-colors flex items-center gap-1.5"
+          title={t.topBar.language}
         >
-          {/* Full label needs more room than a 360px header has to spare. */}
-          <span className="sm:hidden">Connect</span>
-          <span className="hidden sm:inline">Connect Instagram</span>
-        </a>
-      )}
+          <span>{locale === "pt-BR" ? "🇧🇷 PT-BR" : "🇺🇸 EN"}</span>
+        </button>
+
+        {instagramAccountCount > 0 ? (
+          <p className="shrink-0 truncate text-sm text-muted">
+            {instagramAccountCount > 1
+              ? `${instagramAccountCount} ${t.topBar.connectedAccounts}`
+              : `@${instagramUsername}`}
+          </p>
+        ) : (
+          <a
+            href="/api/instagram/connect"
+            className="shrink-0 whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded bg-accent text-white hover:bg-accent-hover"
+          >
+            <span className="sm:hidden">{t.topBar.connectInstagram}</span>
+            <span className="hidden sm:inline">{t.topBar.connectInstagram}</span>
+          </a>
+        )}
+      </div>
     </header>
   );
 }

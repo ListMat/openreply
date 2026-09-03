@@ -23,6 +23,7 @@ import {
   IMPORT_ACCOUNT_KEY,
   type ImportRow,
 } from "@/lib/import-queue";
+import { useI18n } from "@/lib/i18n/context";
 
 type TriggerScope = "specific" | "any" | "next";
 type MatchMode = "specific" | "any";
@@ -131,6 +132,7 @@ function Toggle({
 
 export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderProps) {
   const router = useRouter();
+  const { t, locale } = useI18n();
 
   const [loading, setLoading] = useState(mode === "edit");
   const [notFound, setNotFound] = useState(false);
@@ -570,18 +572,18 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
           {mode === "edit" ? (
             <>
               <span className="truncate text-sm font-semibold text-foreground">
-                {name || "Untitled campaign"}
+                {name || (locale === "pt-BR" ? "Campanha sem nome" : "Untitled campaign")}
               </span>
               <span
                 className={`rounded px-2 py-0.5 text-xs font-semibold ${
                   isActive ? "bg-success/15 text-success" : "bg-zinc-500/15 text-muted"
                 }`}
               >
-                {isActive ? "LIVE" : "PAUSED"}
+                {isActive ? (locale === "pt-BR" ? "ATIVA" : "LIVE") : (locale === "pt-BR" ? "PAUSADA" : "PAUSED")}
               </span>
             </>
           ) : (
-            <span className="text-sm text-muted">New campaign</span>
+            <span className="text-sm text-muted">{t.builder.newTitle}</span>
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -592,7 +594,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
               disabled={saving}
               className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:text-foreground disabled:opacity-50"
             >
-              {importQueue.length > 1 ? "Skip" : "Skip & finish"}
+              {importQueue.length > 1 ? (locale === "pt-BR" ? "Pular" : "Skip") : (locale === "pt-BR" ? "Pular e finalizar" : "Skip & finish")}
             </button>
           )}
           {mode === "edit" &&
@@ -603,7 +605,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 disabled={saving}
                 className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:text-foreground disabled:opacity-50"
               >
-                Stop
+                {locale === "pt-BR" ? "Pausar" : "Stop"}
               </button>
             ) : (
               <button
@@ -612,7 +614,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 disabled={saving}
                 className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:text-foreground disabled:opacity-50"
               >
-                Go Live
+                {locale === "pt-BR" ? "Ativar" : "Go Live"}
               </button>
             ))}
           <button
@@ -621,13 +623,15 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
             disabled={saving}
             className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
           >
-            {saving ? "Saving…" : mode === "new" ? "Go Live" : "Save changes"}
+            {saving
+              ? t.builder.saving
+              : mode === "new"
+              ? t.builder.createCampaign
+              : t.builder.saveCampaign}
           </button>
         </div>
       </div>
 
-      {/* min-w-0 on the cells: a grid item defaults to min-width:auto, so a
-          long string widens the whole page instead of wrapping. */}
       <div className="grid gap-6 lg:grid-cols-[300px_1fr] lg:gap-8">
       {/* Left: controls */}
       <div className="space-y-8 min-w-0">
@@ -639,13 +643,13 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
 
         <div className="space-y-3">
           <label className="text-sm font-semibold text-foreground">
-            Campaign name{" "}
-            <span className="font-normal text-muted">(optional)</span>
+            {t.builder.campaignName}{" "}
+            <span className="font-normal text-muted">({locale === "pt-BR" ? "opcional" : "optional"})</span>
           </label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. YC referral"
+            placeholder={t.builder.campaignNamePlaceholder}
             className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
             maxLength={100}
           />
@@ -661,18 +665,18 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                   setPostThumb(null);
                 }}
                 includeAll={false}
-                label="Instagram account"
+                label={t.builder.targetAccount}
               />
             </div>
           )}
         </div>
 
-        <Section title="When someone comments on">
+        <Section title={t.builder.step1Title}>
           <Radio
             checked={triggerScope === "specific"}
             onSelect={() => setTriggerScope("specific")}
           >
-            a specific post or reel
+            {t.builder.specificPost}
           </Radio>
           {triggerScope === "specific" && (
             <div className="rounded-lg border border-border p-2">
@@ -688,44 +692,45 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
             checked={triggerScope === "any"}
             onSelect={() => setTriggerScope("any")}
           >
-            any post or reel
+            {t.builder.anyPost}
           </Radio>
           <Radio
             checked={triggerScope === "next"}
             onSelect={() => setTriggerScope("next")}
           >
-            next post or reel
+            {t.builder.nextPost}
           </Radio>
         </Section>
 
-        <Section title="And this comment has">
+        <Section title={t.builder.step2Title}>
           <Radio
             checked={matchMode === "specific"}
             onSelect={() => setMatchMode("specific")}
           >
-            a specific word or words
+            {t.builder.specificWords}
           </Radio>
           {matchMode === "specific" && (
             <div className="space-y-1">
               <input
                 value={keywordText}
                 onChange={(e) => setKeywordText(e.target.value)}
-                placeholder="Enter a word or multiple"
+                placeholder={t.builder.keywordsPlaceholder}
                 className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
               />
-              <p className="text-xs text-muted">Use commas to separate words</p>
+              <p className="text-xs text-muted">{t.builder.keywordsHint}</p>
             </div>
           )}
           <Radio
             checked={matchMode === "any"}
             onSelect={() => setMatchMode("any")}
           >
-            any word
+            {t.builder.anyWord}
           </Radio>
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
             <span className="text-sm text-foreground">
-              also reply when someone DMs{" "}
-              {matchMode === "any" ? "anything" : "these words"}
+              {locale === "pt-BR"
+                ? `também responder quando enviarem ${matchMode === "any" ? "qualquer coisa por DM" : "essas palavras por DM"}`
+                : `also reply when someone DMs ${matchMode === "any" ? "anything" : "these words"}`}
             </span>
             <Toggle
               on={dmTriggerEnabled}
@@ -735,13 +740,19 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
           {dmTriggerEnabled && (
             <p className="text-xs text-muted">
               {matchMode === "any"
-                ? "Every DM to this account gets the reply below — use with care."
-                : "A DM containing any of these words gets the same reply, no comment needed."}
+                ? (locale === "pt-BR"
+                    ? "Toda DM recebida nesta conta receberá a resposta abaixo — use com cuidado."
+                    : "Every DM to this account gets the reply below — use with care.")
+                : (locale === "pt-BR"
+                    ? "Qualquer DM contendo estas palavras receberá a resposta, sem precisar de comentário."
+                    : "A DM containing any of these words gets the same reply, no comment needed.")}
             </p>
           )}
           <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
             <span className="text-sm text-foreground">
-              reply to their comments under the post
+              {locale === "pt-BR"
+                ? "responder ao comentário publicamente no post"
+                : "reply to their comments under the post"}
             </span>
             <Toggle
               on={publicReplyEnabled}
@@ -759,7 +770,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                         prev.map((m, idx) => (idx === i ? e.target.value : m))
                       )
                     }
-                    placeholder="Sent you a DM! 📩"
+                    placeholder={locale === "pt-BR" ? "Te mandei no direct! 🚀" : "Sent you a DM! 📩"}
                     maxLength={1000}
                     className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
                   />
@@ -787,21 +798,24 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                   }
                   className="text-xs font-medium text-accent hover:underline"
                 >
-                  + Add another reply
+                  + {locale === "pt-BR" ? "Adicionar outra variação" : "Add another reply"}
                 </button>
               )}
               <p className="text-xs text-muted">
-                One is picked at random each time, so replies don&apos;t look
-                identical.
+                {locale === "pt-BR"
+                  ? "Uma resposta é escolhida aleatoriamente a cada comentário para parecer natural."
+                  : "One is picked at random each time, so replies don't look identical."}
               </p>
             </div>
           )}
         </Section>
 
-        <Section title="They will get">
+        <Section title={locale === "pt-BR" ? "A pessoa receberá" : "They will get"}>
           <div className="rounded-lg border border-border p-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-foreground">an opening DM</span>
+              <span className="text-sm text-foreground">
+                {locale === "pt-BR" ? "uma mensagem inicial (Opening DM)" : "an opening DM"}
+              </span>
               <Toggle
                 on={openingDmEnabled}
                 onToggle={() => setOpeningDmEnabled(!openingDmEnabled)}
@@ -812,7 +826,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 <textarea
                   value={openingDmMessage}
                   onChange={(e) => setOpeningDmMessage(e.target.value)}
-                  placeholder="Hey there! I'm so happy you're here 😊"
+                  placeholder={locale === "pt-BR" ? "Oi! Que bom ver você por aqui 😊" : "Hey there! I'm so happy you're here 😊"}
                   rows={3}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none resize-none"
                   maxLength={1000}
@@ -820,7 +834,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 <input
                   value={openingDmButtonLabel}
                   onChange={(e) => setOpeningDmButtonLabel(e.target.value)}
-                  placeholder="Send me the link"
+                  placeholder={locale === "pt-BR" ? "Me mande o link" : "Send me the link"}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
                   maxLength={64}
                 />
@@ -830,7 +844,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
           <div className="mt-3 rounded-lg border border-border p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-foreground">
-                a follow requirement first
+                {locale === "pt-BR" ? "exigência de seguir o perfil primeiro" : "a follow requirement first"}
               </span>
               <Toggle
                 on={requireFollow}
@@ -842,7 +856,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 <textarea
                   value={followPromptMessage}
                   onChange={(e) => setFollowPromptMessage(e.target.value)}
-                  placeholder="quick favor before i send your link. i don't make any money from this, it's free. if you want to support me, just don't unfollow after, and star the repo on github if it helps you. tap the button once you're following and i'll send it over"
+                  placeholder={locale === "pt-BR" ? "Antes de eu te enviar o link: me siga aqui no perfil @{username} e toque no botão abaixo para liberar o acesso 👇" : "quick favor before i send your link..."}
                   rows={3}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none resize-none"
                   maxLength={1000}
@@ -850,27 +864,29 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 <input
                   value={followPromptButtonLabel}
                   onChange={(e) => setFollowPromptButtonLabel(e.target.value)}
-                  placeholder="i'm following"
+                  placeholder={t.builder.followButtonLabel}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
                   maxLength={20}
                 />
                 <p className="text-xs text-muted">
-                  We send the link only after they tap the button and Instagram
-                  confirms the follow. If it can&apos;t be verified, we send it
-                  anyway.
+                  {locale === "pt-BR"
+                    ? "O link só é enviado após a pessoa tocar no botão e o Instagram confirmar o follow."
+                    : "We send the link only after they tap the button and Instagram confirms the follow."}
                 </p>
               </div>
             )}
           </div>
         </Section>
 
-        <Section title="And then, they will get">
+        <Section title={t.builder.step3Title}>
           <div className="rounded-lg border border-border p-3 space-y-2">
-            <span className="text-sm text-foreground">a DM with a link</span>
+            <span className="text-sm text-foreground">
+              {locale === "pt-BR" ? "DM com o link ou mensagem" : "a DM with a link"}
+            </span>
             <textarea
               value={dmMessage}
               onChange={(e) => setDmMessage(e.target.value)}
-              placeholder="Write a message"
+              placeholder={t.builder.messagePlaceholder}
               rows={3}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none resize-none"
               maxLength={1000}
@@ -881,13 +897,13 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                   value={trackedDestinationUrl}
                   onChange={(e) => setTrackedDestinationUrl(e.target.value)}
                   onBlur={ensureLinkToken}
-                  placeholder="https://yourlink.com/offer"
+                  placeholder={t.builder.destinationUrlPlaceholder}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
                 />
                 <input
                   value={linkButtonLabel}
                   onChange={(e) => setLinkButtonLabel(e.target.value)}
-                  placeholder="Button label (e.g. Open link)"
+                  placeholder={t.builder.buttonLabelPlaceholder}
                   maxLength={20}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
                 />
@@ -896,13 +912,13 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                     <input
                       value={secondaryDestinationUrl}
                       onChange={(e) => setSecondaryDestinationUrl(e.target.value)}
-                      placeholder="https://yourlink.com/second"
+                      placeholder="https://seu-site.com/segundo-link"
                       className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
                     />
                     <input
                       value={secondaryButtonLabel}
                       onChange={(e) => setSecondaryButtonLabel(e.target.value)}
-                      placeholder="Second button label"
+                      placeholder={t.builder.secondButtonLabel}
                       maxLength={20}
                       className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
                     />
@@ -913,7 +929,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                     onClick={() => setSecondLinkOpen(true)}
                     className="w-full rounded-lg border border-border py-2 text-sm text-muted hover:text-foreground"
                   >
-                    + Add A Second Link
+                    + {t.builder.addSecondButton}
                   </button>
                 )}
               </div>
@@ -923,17 +939,19 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 onClick={() => setLinkOpen(true)}
                 className="w-full rounded-lg border border-border py-2 text-sm text-muted hover:text-foreground"
               >
-                + Add A Link
+                + {t.builder.includeLink}
               </button>
             )}
             <p className="text-xs text-muted">
-              {"{link}"} inserts the tracked link; {"{username}"} personalizes.
+              {locale === "pt-BR"
+                ? "{link} insere o link rastreado; {username} personaliza com o nome do usuário."
+                : "{link} inserts the tracked link; {username} personalizes."}
             </p>
           </div>
           <div className="mt-3 rounded-lg border border-border p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-foreground">
-                a follow-up thank-you message
+                {locale === "pt-BR" ? "uma mensagem de agradecimento posterior" : "a follow-up thank-you message"}
               </span>
               <Toggle
                 on={followUpEnabled}
@@ -945,13 +963,13 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 <textarea
                   value={followUpMessage}
                   onChange={(e) => setFollowUpMessage(e.target.value)}
-                  placeholder="Btw just wanted to say thanks for following me, I appreciate the support 🙌"
+                  placeholder={locale === "pt-BR" ? "A propósito, muito obrigado por seguir o perfil! Tamo junto 🙌" : "Btw just wanted to say thanks for following me, I appreciate the support 🙌"}
                   rows={3}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none resize-none"
                   maxLength={1000}
                 />
                 <div className="flex flex-wrap items-center gap-2 text-sm text-foreground">
-                  <span className="text-xs text-muted">Send it</span>
+                  <span className="text-xs text-muted">{locale === "pt-BR" ? "Enviar" : "Send it"}</span>
                   <input
                     type="number"
                     min={0}
@@ -965,16 +983,9 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                     className="w-20 rounded-lg border border-border bg-surface px-2 py-1 text-sm text-foreground focus:border-accent/40 focus:outline-none"
                   />
                   <span className="text-xs text-muted">
-                    minutes after the link
+                    {locale === "pt-BR" ? "minutos após o clique no link" : "minutes after the link"}
                   </span>
                 </div>
-                <p className="text-xs text-muted">
-                  {followUpDelayMinutes > 0
-                    ? `Sent ${followUpDelayMinutes} min after they tap through.`
-                    : "Sent right after they tap through."}
-                  {" {username}"} personalizes it. Max 24 hours, to stay inside
-                  Instagram&apos;s messaging window.
-                </p>
               </div>
             )}
           </div>

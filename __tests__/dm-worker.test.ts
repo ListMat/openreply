@@ -295,7 +295,9 @@ describe("DM Worker — comments left on an ad", () => {
         where: expect.objectContaining({
           OR: [
             { postId: "ad_media_999" },
+            { postIds: { has: "ad_media_999" } },
             { postId: "media_101" },
+            { postIds: { has: "media_101" } },
             { matchAnyPost: true },
           ],
         }),
@@ -313,7 +315,11 @@ describe("DM Worker — Full Pipeline", () => {
 
     expect(mockPrisma.automation.findMany).toHaveBeenCalledWith({
       where: {
-        OR: [{ postId: "media_101" }, { matchAnyPost: true }],
+        OR: [
+          { postId: "media_101" },
+          { postIds: { has: "media_101" } },
+          { matchAnyPost: true },
+        ],
         isActive: true,
         instagramAccount: { instagramId: "ig_456" },
       },

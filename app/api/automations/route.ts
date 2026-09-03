@@ -22,6 +22,8 @@ const createAutomationSchema = z
     instagramAccountId: z.string().min(1).optional().nullable(),
     postId: z.string().min(1).optional().nullable(),
     postUrl: z.string().url().optional().nullable(),
+    postIds: z.array(z.string().min(1)).optional().default([]),
+    postUrls: z.array(z.string().url()).optional().default([]),
     pendingNextReel: z.boolean().optional().default(false),
     matchAnyPost: z.boolean().optional().default(false),
     keywords: z.array(z.string().min(1).max(50)).max(10).optional().default([]),
@@ -63,7 +65,11 @@ const createAutomationSchema = z
   })
   // A campaign must target a specific post, any post, or the next reel.
   .refine(
-    (d) => d.matchAnyPost || d.pendingNextReel || Boolean(d.postId),
+    (d) =>
+      d.matchAnyPost ||
+      d.pendingNextReel ||
+      Boolean(d.postId) ||
+      (d.postIds && d.postIds.length > 0),
     { message: "Choose which post(s) trigger the campaign", path: ["postId"] }
   )
   // And it must match either specific words or any word.
@@ -85,6 +91,8 @@ const updateAutomationSchema = z.object({
   goal: z.string().min(1).max(120).optional().nullable(),
   postId: z.string().min(1).optional().nullable(),
   postUrl: z.string().url().optional().nullable(),
+  postIds: z.array(z.string().min(1)).optional(),
+  postUrls: z.array(z.string().url()).optional(),
   pendingNextReel: z.boolean().optional(),
   matchAnyPost: z.boolean().optional(),
   keywords: z.array(z.string().min(1).max(50)).max(10).optional(),
@@ -373,6 +381,21 @@ export async function POST(request: NextRequest) {
     parsed.data;
   // A post is only stored for the "specific post" trigger.
   const isSpecificPost = !pendingNextReel && !matchAnyPost;
+  const targetPostIds = isSpecificPost
+    ? parsed.data.postIds && parsed.data.postIds.length > 0
+      ? parsed.data.postIds
+      : parsed.data.postId
+        ? [parsed.data.postId]
+        : []
+    : [];
+  const targetPostUrls = isSpecificPost
+    ? parsed.data.postUrls && parsed.data.postUrls.length > 0
+      ? parsed.data.postUrls
+      : parsed.data.postUrl
+        ? [parsed.data.postUrl]
+        : []
+    : [];
+
   const publicReplyList = (
     parsed.data.publicReplyMessages.length > 0
       ? parsed.data.publicReplyMessages
@@ -388,8 +411,10 @@ export async function POST(request: NextRequest) {
       name: parsed.data.name,
       goal: parsed.data.goal,
       // A next-reel campaign has no post yet; the cron binds it once a reel is posted.
-      postId: isSpecificPost ? parsed.data.postId : null,
-      postUrl: isSpecificPost ? parsed.data.postUrl : null,
+      postId: isSpecificPost ? targetPostIds[0] ?? parsed.data.postId ?? null : null,
+      postUrl: isSpecificPost ? targetPostUrls[0] ?? parsed.data.postUrl ?? null : null,
+      postIds: targetPostIds,
+      postUrls: targetPostUrls,
       pendingNextReel,
       matchAnyPost,
       keywords: matchAnyWord ? [] : parsed.data.keywords,
@@ -522,6 +547,16 @@ export async function PATCH(request: NextRequest) {
   if (automationData.matchAnyPost === true || automationData.pendingNextReel === true) {
     automationData.postId = null;
     automationData.postUrl = null;
+    automationData.postIds = [];
+    automationData.postUrls = [];
+  } else if (automationData.postIds !== undefined) {
+    if (automationData.postIds.length > 0) {
+      automationData.postId = automationData.postIds[0];
+      automationData.postUrl = automationData.postUrls?.[0] ?? automationData.postUrl ?? null;
+    } else if (automationData.postId) {
+      automationData.postIds = [automationData.postId];
+      automationData.postUrls = automationData.postUrl ? [automationData.postUrl] : [];
+    }
   }
   // Keep the public-reply variations list and the legacy single field in sync.
   if (automationData.publicReplyMessages !== undefined) {

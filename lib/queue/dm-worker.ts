@@ -208,7 +208,13 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
       // have to be considered or the comment is dropped without a trace.
       OR: [
         { postId: mediaId },
-        ...(originalMediaId ? [{ postId: originalMediaId }] : []),
+        { postIds: { has: mediaId } },
+        ...(originalMediaId
+          ? [
+              { postId: originalMediaId },
+              { postIds: { has: originalMediaId } },
+            ]
+          : []),
         { matchAnyPost: true },
       ],
       isActive: true,

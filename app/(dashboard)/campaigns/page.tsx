@@ -19,6 +19,8 @@ interface Campaign {
   goal: string | null;
   postId: string | null;
   postUrl: string | null;
+  postIds?: string[];
+  postUrls?: string[];
   pendingNextReel: boolean;
   matchAnyPost: boolean;
   keywords: string[];
@@ -247,6 +249,8 @@ export default function CampaignsPage() {
           instagramAccountId: auto.instagramAccountId,
           postId: specific ? auto.postId : null,
           postUrl: specific ? auto.postUrl : null,
+          postIds: specific ? (auto.postIds ?? (auto.postId ? [auto.postId] : [])) : [],
+          postUrls: specific ? (auto.postUrls ?? (auto.postUrl ? [auto.postUrl] : [])) : [],
           matchAnyPost: auto.matchAnyPost,
           pendingNextReel: auto.pendingNextReel,
           matchAnyWord: auto.matchAnyWord,
@@ -402,45 +406,52 @@ export default function CampaignsPage() {
                 to their own line instead of squeezing the campaign summary. */}
             <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
               {auto.postId && thumbnails[auto.postId] && (
-                videoUrl ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPlayingVideo({ url: videoUrl, postUrl: auto.postUrl });
-                    }}
-                    aria-label="Play reel preview"
-                    className="shrink-0"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={thumbnails[auto.postId]}
-                      alt="Campaign reel"
-                      className="w-12 h-12 rounded object-cover border border-border hover:border-border-hover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
+                <div className="relative shrink-0">
+                  {videoUrl ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPlayingVideo({ url: videoUrl, postUrl: auto.postUrl });
                       }}
-                    />
-                  </button>
-                ) : (
-                  <a
-                    href={auto.postUrl ?? "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="shrink-0"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={thumbnails[auto.postId]}
-                      alt="Campaign post"
-                      className="w-12 h-12 rounded object-cover border border-border"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  </a>
-                )
+                      aria-label="Play reel preview"
+                      className="shrink-0 block"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={thumbnails[auto.postId]}
+                        alt="Campaign reel"
+                        className="w-12 h-12 rounded object-cover border border-border hover:border-border-hover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    </button>
+                  ) : (
+                    <a
+                      href={auto.postUrl ?? "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="shrink-0 block"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={thumbnails[auto.postId]}
+                        alt="Campaign post"
+                        className="w-12 h-12 rounded object-cover border border-border"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    </a>
+                  )}
+                  {auto.postIds && auto.postIds.length > 1 && (
+                    <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white shadow-sm border border-surface">
+                      +{auto.postIds.length - 1}
+                    </span>
+                  )}
+                </div>
               )}
               <div className="min-w-[12rem] flex-1">
                 <div className="flex flex-wrap items-center gap-2 mb-2">

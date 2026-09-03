@@ -33,6 +33,8 @@ interface LoadedCampaign {
   name: string;
   postId: string | null;
   postUrl: string | null;
+  postIds?: string[];
+  postUrls?: string[];
   pendingNextReel: boolean;
   matchAnyPost: boolean;
   keywords: string[];
@@ -149,6 +151,8 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
   const [triggerScope, setTriggerScope] = useState<TriggerScope>("specific");
   const [postId, setPostId] = useState<string | null>(null);
   const [postUrl, setPostUrl] = useState<string | null>(null);
+  const [postIds, setPostIds] = useState<string[]>([]);
+  const [postUrls, setPostUrls] = useState<string[]>([]);
   const [postThumb, setPostThumb] = useState<string | null>(null);
   const [postCaption, setPostCaption] = useState("");
 
@@ -256,8 +260,12 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
         setTriggerScope(
           c.matchAnyPost ? "any" : c.pendingNextReel ? "next" : "specific"
         );
-        setPostId(c.postId);
-        setPostUrl(c.postUrl);
+        const loadedPostIds = c.postIds && c.postIds.length > 0 ? c.postIds : (c.postId ? [c.postId] : []);
+        const loadedPostUrls = c.postUrls && c.postUrls.length > 0 ? c.postUrls : (c.postUrl ? [c.postUrl] : []);
+        setPostIds(loadedPostIds);
+        setPostUrls(loadedPostUrls);
+        setPostId(loadedPostIds[0] ?? null);
+        setPostUrl(loadedPostUrls[0] ?? null);
         setMatchMode(c.matchAnyWord ? "any" : "specific");
         setKeywordText(c.keywords.join(", "));
         setDmTriggerEnabled(c.dmTriggerEnabled ?? false);
@@ -327,6 +335,8 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
     setTriggerScope("specific");
     setPostId(null);
     setPostUrl(null);
+    setPostIds([]);
+    setPostUrls([]);
     setPostThumb(null);
     setPostCaption("");
     setMatchMode("specific");
@@ -375,10 +385,44 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
     thumb?: string,
     caption?: string
   ) {
+    if (!id) {
+      setPostId(null);
+      setPostUrl(null);
+      setPostThumb(null);
+      setPostCaption("");
+      setPostIds([]);
+      setPostUrls([]);
+      return;
+    }
     setPostId(id);
     setPostUrl(url ?? null);
     setPostThumb(thumb ?? null);
     setPostCaption(caption ?? "");
+    setPostIds((prev) => (prev.includes(id) ? prev : [id, ...prev]));
+    if (url) {
+      setPostUrls((prev) => (prev.includes(url) ? prev : [url, ...prev]));
+    }
+  }
+
+  function handlePostSelectionChange(
+    ids: string[],
+    items: Array<{ id: string; permalink?: string; thumbUrl?: string; caption?: string }>
+  ) {
+    setPostIds(ids);
+    const urls = items.map((i) => i.permalink).filter((u): u is string => Boolean(u));
+    setPostUrls(urls);
+    if (items.length > 0) {
+      const primary = items[0];
+      setPostId(primary.id);
+      setPostUrl(primary.permalink ?? null);
+      setPostThumb(primary.thumbUrl ?? null);
+      setPostCaption(primary.caption ?? "");
+    } else {
+      setPostId(null);
+      setPostUrl(null);
+      setPostThumb(null);
+      setPostCaption("");
+    }
   }
 
   function ensureLinkToken() {
@@ -388,9 +432,12 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
   async function handleSubmit(activeValue: boolean) {
     setError(null);
 
+    const effectivePostIds = postIds.length > 0 ? postIds : (postId ? [postId] : []);
+    const effectivePostUrls = postUrls.length > 0 ? postUrls : (postUrl ? [postUrl] : []);
+
     if (!selectedAccountId) return setError("Connect an Instagram account first.");
-    if (triggerScope === "specific" && !postId)
-      return setError("Pick a post or reel to trigger the campaign.");
+    if (triggerScope === "specific" && effectivePostIds.length === 0)
+      return setError(locale === "pt-BR" ? "Selecione pelo menos um post ou reel para acionar a campanha." : "Pick a post or reel to trigger the campaign.");
     if (matchMode === "specific" && keywords.length === 0)
       return setError("Add at least one keyword, or switch to any word.");
     if (!dmMessage.trim()) return setError("Add the DM with the link.");
@@ -402,8 +449,10 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
     const payload = {
       name: name.trim() || `Campaign for @${username}`,
       instagramAccountId: selectedAccountId,
-      postId: triggerScope === "specific" ? postId : null,
-      postUrl: triggerScope === "specific" ? postUrl : null,
+      postId: triggerScope === "specific" ? (effectivePostIds[0] ?? null) : null,
+      postUrl: triggerScope === "specific" ? (effectivePostUrls[0] ?? null) : null,
+      postIds: triggerScope === "specific" ? effectivePostIds : [],
+      postUrls: triggerScope === "specific" ? effectivePostUrls : [],
       matchAnyPost: triggerScope === "any",
       pendingNextReel: triggerScope === "next",
       matchAnyWord: matchMode === "any",
@@ -682,9 +731,11 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
             <div className="rounded-lg border border-border p-2">
               <PostPicker
                 selectedPostId={postId}
+                selectedPostIds={postIds}
                 instagramAccountId={selectedAccountId}
                 usedPostIds={usedPosts}
                 onSelect={handlePostSelect}
+                onSelectionChange={handlePostSelectionChange}
               />
             </div>
           )}

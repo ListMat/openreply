@@ -2,6 +2,7 @@ import { createDMWorker } from "@/lib/queue/dm-worker";
 import { recordWorkerHeartbeat } from "@/lib/ops/worker-health";
 import { reconcileComments } from "@/lib/polling/comment-reconciler";
 import os from "node:os";
+import http from "node:http";
 
 const worker = createDMWorker();
 const startedAt = new Date().toISOString();
@@ -11,6 +12,16 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
 const POLL_INTERVAL_MS = Number(
   process.env.COMMENT_POLL_INTERVAL_MS ?? 5 * 60_000
 );
+
+// HTTP health check server so platforms like Render Free Web Service detect a healthy service
+const PORT = Number(process.env.PORT || 3001);
+const server = http.createServer((_req, res) => {
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ status: "healthy", worker: "active", startedAt }));
+});
+server.listen(PORT, () => {
+  console.log(`[DM Worker] Health check listening on port ${PORT}`);
+});
 
 console.log("[DM Worker] Started");
 
@@ -47,6 +58,7 @@ async function shutdown(signal: string) {
   console.log(`[DM Worker] ${signal} received, closing worker`);
   clearInterval(heartbeatTimer);
   clearInterval(pollTimer);
+  server.close();
   await worker.close();
   process.exit(0);
 }

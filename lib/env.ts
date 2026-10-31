@@ -46,6 +46,24 @@ export function getMissingInstagramOAuthEnv(): string[] {
   });
 }
 
+export function getMissingFacebookOAuthEnv(): string[] {
+  const missing: string[] = [];
+  if (!process.env.FACEBOOK_APP_ID && !process.env.INSTAGRAM_APP_ID) {
+    missing.push("FACEBOOK_APP_ID (or INSTAGRAM_APP_ID)");
+  }
+  if (!process.env.FACEBOOK_APP_SECRET && !process.env.INSTAGRAM_APP_SECRET) {
+    missing.push("FACEBOOK_APP_SECRET (or INSTAGRAM_APP_SECRET)");
+  }
+  const key = process.env.ENCRYPTION_KEY;
+  if (!key || !HEX_32_BYTE.test(key)) {
+    missing.push("ENCRYPTION_KEY");
+  }
+  if (!process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
+    missing.push("NEXTAUTH_SECRET");
+  }
+  return missing;
+}
+
 export function getMetaGraphApiVersion(): string {
   return process.env.META_GRAPH_API_VERSION ?? "v25.0";
 }

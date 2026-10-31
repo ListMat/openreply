@@ -45,6 +45,7 @@ export interface WebhookCommentEvent {
    * matching has to consider it as well as mediaId.
    */
   originalMediaId?: string;
+  platform?: "INSTAGRAM" | "FACEBOOK";
 }
 
 interface WebhookEntry {
@@ -56,9 +57,16 @@ interface WebhookEntry {
       id?: string;
       comment_id?: string;
       text?: string;
+      message?: string;
+      item?: string;
+      verb?: string;
+      post_id?: string;
+      video_id?: string;
+      parent_id?: string;
       from?: {
         id?: string;
         username?: string;
+        name?: string;
       };
       media?: {
         id?: string;
@@ -115,46 +123,96 @@ interface WebhookPayload {
 export function parseCommentEvents(payload: WebhookPayload): WebhookCommentEvent[] {
   const events: WebhookCommentEvent[] = [];
 
-  if (payload.object !== "instagram") {
+  if (payload.object !== "instagram" && payload.object !== "page") {
     return events;
   }
 
+  const isInstagram = payload.object === "instagram";
+  const isPage = payload.object === "page";
+
   for (const entry of payload.entry ?? []) {
     for (const change of entry.changes ?? []) {
-      if (change.field !== "comments") continue;
+      if (isInstagram) {
+        if (change.field !== "comments") continue;
 
-      const value = change.value;
-      const commentId = value?.id ?? value?.comment_id;
-      const mediaId = value?.media?.id ?? value?.media_id;
-      // A comment on a boosted post arrives with the ad's media id, while the
-      // campaign is set up against the organic post. Keep both so the worker
-      // can match either one.
-      const originalMediaId =
-        value?.media?.original_media_id === mediaId
-          ? undefined
-          : value?.media?.original_media_id;
-      const commenterId = value?.from?.id;
+        const value = change.value;
+        const commentId = value?.id ?? value?.comment_id;
+        const mediaId = value?.media?.id ?? value?.media_id;
+        // A comment on a boosted post arrives with the ad's media id, while the
+        // campaign is set up against the organic post. Keep both so the worker
+        // can match either one.
+        const originalMediaId =
+          value?.media?.original_media_id === mediaId
+            ? undefined
+            : value?.media?.original_media_id;
+        const commenterId = value?.from?.id;
 
-      if (!entry.id || !commentId || !mediaId || !commenterId) {
-        continue;
+        if (!entry.id || !commentId || !mediaId || !commenterId) {
+          continue;
+        }
+
+        // Skip the connected account's own comments and comment replies.
+        // A private reply to yourself is rejected by Meta, so queueing one
+        // only produces a failed log and wasted retries.
+        if (commenterId === entry.id) {
+          continue;
+        }
+
+        const event: WebhookCommentEvent = {
+          instagramAccountId: entry.id,
+          commentId,
+          commentText: value.text ?? "",
+          commenterId,
+          commenterName: value.from?.username,
+          mediaId,
+          platform: "INSTAGRAM",
+        };
+        if (originalMediaId) {
+          event.originalMediaId = originalMediaId;
+        }
+
+        events.push(event);
+      } else if (isPage) {
+        // Facebook Page comment event delivered via feed webhook field.
+        if (change.field !== "feed") continue;
+
+        const value = change.value;
+        if (value?.item && value.item !== "comment") continue;
+        if (value?.verb && value.verb !== "add") continue;
+
+        const commentId = value?.comment_id ?? value?.id;
+        // In Facebook, comments on videos or posts can have video_id, post_id, or parent_id.
+        const mediaId = value?.video_id ?? value?.post_id ?? value?.parent_id;
+        const originalMediaId =
+          value?.video_id && value?.post_id && value.video_id !== value.post_id
+            ? value.post_id
+            : undefined;
+        const commenterId = value?.from?.id;
+
+        if (!entry.id || !commentId || !mediaId || !commenterId) {
+          continue;
+        }
+
+        // Skip comments made by the Page itself.
+        if (commenterId === entry.id) {
+          continue;
+        }
+
+        const event: WebhookCommentEvent = {
+          instagramAccountId: entry.id,
+          commentId,
+          commentText: value.message ?? value.text ?? "",
+          commenterId,
+          commenterName: value.from?.name ?? value.from?.username,
+          mediaId,
+          platform: "FACEBOOK",
+        };
+        if (originalMediaId) {
+          event.originalMediaId = originalMediaId;
+        }
+
+        events.push(event);
       }
-
-      // Skip the connected account's own comments and comment replies.
-      // A private reply to yourself is rejected by Meta, so queueing one
-      // only produces a failed log and wasted retries.
-      if (commenterId === entry.id) {
-        continue;
-      }
-
-      events.push({
-        instagramAccountId: entry.id,
-        commentId,
-        commentText: value.text ?? "",
-        commenterId,
-        commenterName: value.from?.username,
-        mediaId,
-        originalMediaId,
-      });
     }
   }
 
@@ -163,14 +221,14 @@ export function parseCommentEvents(payload: WebhookPayload): WebhookCommentEvent
 
 /**
  * Parse button-tap postbacks (from an opening DM's button) out of a webhook
- * payload. Each event carries the tapping user's IGSID and our postback payload.
+ * payload. Each event carries the tapping user's IGSID/PSID and our postback payload.
  */
 export function parsePostbackEvents(
   payload: WebhookPayload
 ): WebhookPostbackEvent[] {
   const events: WebhookPostbackEvent[] = [];
 
-  if (payload.object !== "instagram") return events;
+  if (payload.object !== "instagram" && payload.object !== "page") return events;
 
   for (const entry of payload.entry ?? []) {
     for (const messaging of entry.messaging ?? []) {
@@ -195,7 +253,7 @@ export function parsePostbackEvents(
 }
 
 /**
- * Parse inbound Instagram DMs out of a webhook payload. These drive the
+ * Parse inbound Instagram/Messenger DMs out of a webhook payload. These drive the
  * keyword-triggered autoreply: a user messages the account, and a campaign
  * with `dmTriggerEnabled` whose keywords match the text replies to them.
  *
@@ -209,7 +267,7 @@ export function parseMessageEvents(
 ): WebhookMessageEvent[] {
   const events: WebhookMessageEvent[] = [];
 
-  if (payload.object !== "instagram") return events;
+  if (payload.object !== "instagram" && payload.object !== "page") return events;
 
   for (const entry of payload.entry ?? []) {
     for (const messaging of entry.messaging ?? []) {
@@ -241,14 +299,14 @@ export function parseMessageEvents(
 }
 
 /**
- * Parse Instagram DM read receipts. When a user reads an opening DM but does
+ * Parse Instagram/Messenger DM read receipts. When a user reads an opening DM but does
  * not tap its button, the webhook route uses this to schedule the reveal after
  * a short grace period.
  */
 export function parseReadEvents(payload: WebhookPayload): WebhookReadEvent[] {
   const events: WebhookReadEvent[] = [];
 
-  if (payload.object !== "instagram") return events;
+  if (payload.object !== "instagram" && payload.object !== "page") return events;
 
   for (const entry of payload.entry ?? []) {
     for (const messaging of entry.messaging ?? []) {

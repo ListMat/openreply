@@ -21,6 +21,7 @@ interface SettingsData {
     AccountOption & {
       tokenExpiresAt: string | null;
       webhookSubscribed: boolean;
+      platform?: string;
     }
   >;
 }
@@ -204,7 +205,7 @@ export default function SettingsPage() {
       </section>
 
       <section className="panel rounded p-4 sm:p-6">
-        <h2 className="text-base font-semibold mb-6">{t.settings.instagramSection}</h2>
+        <h2 className="text-base font-semibold mb-6">{locale === "pt-BR" ? "Contas & Páginas Conectadas" : "Connected Accounts & Pages"}</h2>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 py-3 border-b border-border">
@@ -236,7 +237,7 @@ export default function SettingsPage() {
               </p>
               <p className="text-xs text-muted mt-0.5">
                 {accounts.length}{" "}
-                {locale === "pt-BR" ? "perfil(s) do Instagram conectado(s)" : "connected Instagram profile(s)"}
+                {locale === "pt-BR" ? "perfil(s) do Instagram ou Página(s) do Facebook" : "Instagram profile(s) or Facebook Page(s)"}
               </p>
             </div>
             <span className="text-sm text-muted">
@@ -252,45 +253,62 @@ export default function SettingsPage() {
                 {t.settings.noAccountsConnected}
               </p>
             )}
-            {accounts.map((account) => (
-              <div
-                key={account.id}
-                className="flex flex-col gap-3 rounded border border-border bg-surface/70 p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    @{account.username}
-                  </p>
-                  <p className="mt-1 text-xs text-muted">
-                    {t.settings.tokenValidUntil}{" "}
-                    {account.tokenExpiresAt
-                      ? new Date(account.tokenExpiresAt).toLocaleDateString()
-                      : "—"}{" "}
-                    · {account.webhookSubscribed ? t.settings.webhookActive : t.settings.webhookInactive}
-                  </p>
-                </div>
-                <button
-                  onClick={() => disconnectInstagram(account.id)}
-                  disabled={busy === `disconnect:${account.id}`}
-                  className="inline-flex items-center justify-center rounded border border-error/20 px-4 py-2 text-sm font-medium text-error transition-all hover:border-error/40 hover:bg-error/10 disabled:opacity-50"
+            {accounts.map((account) => {
+              const isFb = account.platform === "FACEBOOK";
+              return (
+                <div
+                  key={account.id}
+                  className="flex flex-col gap-3 rounded border border-border bg-surface/70 p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  {busy === `disconnect:${account.id}`
-                    ? (locale === "pt-BR" ? "Desconectando..." : "Disconnecting...")
-                    : t.settings.disconnect}
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wide ${
+                          isFb
+                            ? "bg-[#1877F2]/15 text-[#1877F2] border border-[#1877F2]/30"
+                            : "bg-pink-500/15 text-pink-400 border border-pink-500/30"
+                        }`}
+                      >
+                        {isFb ? "FACEBOOK PAGE" : "INSTAGRAM"}
+                      </span>
+                      <p className="text-sm font-semibold text-foreground">
+                        {isFb ? (account.name || account.username) : `@${account.username}`}
+                      </p>
+                    </div>
+                    <p className="mt-1 text-xs text-muted">
+                      {account.tokenExpiresAt
+                        ? `${t.settings.tokenValidUntil} ${new Date(account.tokenExpiresAt).toLocaleDateString()}`
+                        : (isFb ? (locale === "pt-BR" ? "Token permanente da Página" : "Permanent Page Token") : "—")}{" "}
+                      · {account.webhookSubscribed ? t.settings.webhookActive : t.settings.webhookInactive}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => disconnectInstagram(account.id)}
+                    disabled={busy === `disconnect:${account.id}`}
+                    className="inline-flex items-center justify-center rounded border border-error/20 px-4 py-2 text-sm font-medium text-error transition-all hover:border-error/40 hover:bg-error/10 disabled:opacity-50"
+                  >
+                    {busy === `disconnect:${account.id}`
+                      ? (locale === "pt-BR" ? "Desconectando..." : "Disconnecting...")
+                      : t.settings.disconnect}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-border flex gap-3">
+        <div className="mt-6 pt-4 border-t border-border flex flex-wrap gap-3">
           <a
             href="/api/instagram/connect"
-            className="px-4 py-2 rounded text-sm font-medium transition-colors bg-accent text-white hover:bg-accent-hover"
+            className="px-4 py-2 rounded text-sm font-medium transition-colors bg-accent text-white hover:bg-accent-hover inline-flex items-center gap-2"
           >
-            {accounts.length > 0
-              ? (locale === "pt-BR" ? "Conectar outra conta" : "Connect another account")
-              : t.settings.connectNewAccount}
+            <span>{locale === "pt-BR" ? "Conectar Instagram" : "Connect Instagram"}</span>
+          </a>
+          <a
+            href="/api/facebook/connect"
+            className="px-4 py-2 rounded text-sm font-medium transition-colors bg-[#1877F2] text-white hover:bg-[#166fe5] inline-flex items-center gap-2 shadow-sm"
+          >
+            <span>{locale === "pt-BR" ? "Conectar Página do Facebook" : "Connect Facebook Page"}</span>
           </a>
         </div>
       </section>

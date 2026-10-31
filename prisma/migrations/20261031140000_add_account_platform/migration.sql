@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "InstagramAccount" ADD COLUMN IF NOT EXISTS "platform" TEXT NOT NULL DEFAULT 'INSTAGRAM';
+

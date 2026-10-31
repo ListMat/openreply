@@ -96,6 +96,7 @@ describe("parseCommentEvents", () => {
       commenterId: "user_789",
       commenterName: "testuser",
       mediaId: "media_101",
+      platform: "INSTAGRAM",
     });
   });
 
@@ -159,9 +160,9 @@ describe("parseCommentEvents", () => {
     expect(parseCommentEvents(payload)[0].originalMediaId).toBeUndefined();
   });
 
-  it("should ignore non-instagram objects", () => {
+  it("should ignore unsupported objects", () => {
     const payload = {
-      object: "page",
+      object: "unsupported",
       entry: [
         {
           id: "page_123",
@@ -349,6 +350,151 @@ describe("parseCommentEvents", () => {
     const events = parseCommentEvents(payload);
     expect(events).toHaveLength(0);
   });
+
+  // Facebook Page feed comment tests
+  it("should parse a valid comment event on a Facebook Page video", () => {
+    const payload = {
+      object: "page",
+      entry: [
+        {
+          id: "fb_page_123",
+          time: 1234567890,
+          changes: [
+            {
+              field: "feed",
+              value: {
+                item: "comment",
+                verb: "add",
+                comment_id: "fb_comment_456",
+                video_id: "fb_video_101",
+                post_id: "fb_page_123_fb_video_101",
+                message: "Quero o link do video",
+                from: {
+                  id: "fb_user_789",
+                  name: "Maria Silva",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const events = parseCommentEvents(payload);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({
+      instagramAccountId: "fb_page_123",
+      commentId: "fb_comment_456",
+      commentText: "Quero o link do video",
+      commenterId: "fb_user_789",
+      commenterName: "Maria Silva",
+      mediaId: "fb_video_101",
+      originalMediaId: "fb_page_123_fb_video_101",
+      platform: "FACEBOOK",
+    });
+  });
+
+  it("should parse a valid comment event on a Facebook Page post", () => {
+    const payload = {
+      object: "page",
+      entry: [
+        {
+          id: "fb_page_123",
+          time: 1234567890,
+          changes: [
+            {
+              field: "feed",
+              value: {
+                item: "comment",
+                verb: "add",
+                comment_id: "fb_comment_456",
+                post_id: "fb_post_999",
+                message: "PRECO",
+                from: {
+                  id: "fb_user_789",
+                  name: "João Santos",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const events = parseCommentEvents(payload);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({
+      instagramAccountId: "fb_page_123",
+      commentId: "fb_comment_456",
+      commentText: "PRECO",
+      commenterId: "fb_user_789",
+      commenterName: "João Santos",
+      mediaId: "fb_post_999",
+      platform: "FACEBOOK",
+    });
+  });
+
+  it("should ignore Facebook feed events that are not comment adds", () => {
+    const payload = {
+      object: "page",
+      entry: [
+        {
+          id: "fb_page_123",
+          time: 1234567890,
+          changes: [
+            {
+              field: "feed",
+              value: {
+                item: "reaction",
+                verb: "add",
+                post_id: "fb_post_999",
+              },
+            },
+            {
+              field: "feed",
+              value: {
+                item: "comment",
+                verb: "remove",
+                comment_id: "fb_comment_deleted",
+                post_id: "fb_post_999",
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(parseCommentEvents(payload)).toHaveLength(0);
+  });
+
+  it("should ignore Facebook Page comments made by the Page itself", () => {
+    const payload = {
+      object: "page",
+      entry: [
+        {
+          id: "fb_page_123",
+          time: 1234567890,
+          changes: [
+            {
+              field: "feed",
+              value: {
+                item: "comment",
+                verb: "add",
+                comment_id: "fb_comment_self",
+                video_id: "fb_video_101",
+                from: {
+                  id: "fb_page_123",
+                  name: "Minha Pagina",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(parseCommentEvents(payload)).toHaveLength(0);
+  });
 });
 
 describe("parseMessageEvents", () => {
@@ -445,10 +591,10 @@ describe("parseMessageEvents", () => {
     expect(parseMessageEvents(payload)).toHaveLength(0);
   });
 
-  it("should ignore non-instagram payloads", () => {
+  it("should ignore unsupported payload objects", () => {
     expect(
       parseMessageEvents({
-        object: "page",
+        object: "unsupported_object",
         entry: [
           {
             id: "ig_456",
@@ -463,6 +609,37 @@ describe("parseMessageEvents", () => {
         ],
       })
     ).toHaveLength(0);
+  });
+
+  it("should parse an inbound Facebook Messenger message", () => {
+    const payload = {
+      object: "page",
+      entry: [
+        {
+          id: "fb_page_123",
+          time: 1234567890,
+          messaging: [
+            {
+              sender: { id: "fb_user_789" },
+              recipient: { id: "fb_page_123" },
+              message: {
+                mid: "m_mid_12345",
+                text: "Olá, gostaria de saber mais",
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const events = parseMessageEvents(payload);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({
+      instagramAccountId: "fb_page_123",
+      messageId: "m_mid_12345",
+      messageText: "Olá, gostaria de saber mais",
+      senderId: "fb_user_789",
+    });
   });
 });
 

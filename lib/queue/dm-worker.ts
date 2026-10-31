@@ -24,6 +24,12 @@ import {
   sendPrivateReply,
   sendPrivateReplyWithButton,
   sendPrivateReplyWithLinkButton,
+  sendFacebookPageCommentReply,
+  sendFacebookPageDirectMessage,
+  sendFacebookPageDirectMessageWithLinkButton,
+  sendFacebookPagePrivateReply,
+  sendFacebookPagePrivateReplyWithButton,
+  sendFacebookPagePrivateReplyWithLinkButton,
 } from "@/lib/meta/client";
 import { decryptToken } from "@/lib/meta/oauth";
 import { matchKeywords } from "@/lib/utils/keyword-matcher";
@@ -113,7 +119,7 @@ type RevealAutomation = {
   dmMessage: string;
   linkButtonLabel: string | null;
   trackedLinks: WorkerTrackedLink[];
-  instagramAccount: { instagramId: string };
+  instagramAccount: { instagramId: string; platform?: string | null };
 };
 
 /**
@@ -128,17 +134,29 @@ async function sendRevealDirectMessage(
   commenterName: string | null,
   context: string
 ): Promise<void> {
+  const isFacebook = automation.instagramAccount.platform === "FACEBOOK";
+
   if (automation.trackedLinks.length === 0) {
-    await sendDirectMessage(
-      accessToken,
-      automation.instagramAccount.instagramId,
-      userId,
-      renderMessageWithTracking({
-        message: automation.dmMessage,
-        commenterName,
-        trackedLinks: automation.trackedLinks,
-      })
-    );
+    const text = renderMessageWithTracking({
+      message: automation.dmMessage,
+      commenterName,
+      trackedLinks: automation.trackedLinks,
+    });
+    if (isFacebook) {
+      await sendFacebookPageDirectMessage(
+        accessToken,
+        automation.instagramAccount.instagramId,
+        userId,
+        text
+      );
+    } else {
+      await sendDirectMessage(
+        accessToken,
+        automation.instagramAccount.instagramId,
+        userId,
+        text
+      );
+    }
     return;
   }
 
@@ -154,13 +172,23 @@ async function sendRevealDirectMessage(
   );
 
   try {
-    await sendDirectMessageWithLinkButton(
-      accessToken,
-      automation.instagramAccount.instagramId,
-      userId,
-      bodyText,
-      buttons
-    );
+    if (isFacebook) {
+      await sendFacebookPageDirectMessageWithLinkButton(
+        accessToken,
+        automation.instagramAccount.instagramId,
+        userId,
+        bodyText,
+        buttons
+      );
+    } else {
+      await sendDirectMessageWithLinkButton(
+        accessToken,
+        automation.instagramAccount.instagramId,
+        userId,
+        bodyText,
+        buttons
+      );
+    }
   } catch (buttonError) {
     // A closed messaging window rejects the text retry too, so don't let it
     // overwrite the original error with a misleading one.
@@ -171,17 +199,27 @@ async function sendRevealDirectMessage(
       formatError(buttonError)
     );
     try {
-      await sendDirectMessage(
-        accessToken,
-        automation.instagramAccount.instagramId,
-        userId,
-        buildInlineLinkFallback(
-          automation.dmMessage,
-          commenterName,
-          automation.trackedLinks,
-          bodyText
-        )
+      const fallbackText = buildInlineLinkFallback(
+        automation.dmMessage,
+        commenterName,
+        automation.trackedLinks,
+        bodyText
       );
+      if (isFacebook) {
+        await sendFacebookPageDirectMessage(
+          accessToken,
+          automation.instagramAccount.instagramId,
+          userId,
+          fallbackText
+        );
+      } else {
+        await sendDirectMessage(
+          accessToken,
+          automation.instagramAccount.instagramId,
+          userId,
+          fallbackText
+        );
+      }
     } catch {
       throw buttonError;
     }
@@ -384,7 +422,11 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
           commenterName,
           trackedLinks: automation.trackedLinks,
         });
-        await sendCommentReply(accessToken, commentId, publicReply);
+        if (automation.instagramAccount.platform === "FACEBOOK") {
+          await sendFacebookPageCommentReply(accessToken, commentId, publicReply);
+        } else {
+          await sendCommentReply(accessToken, commentId, publicReply);
+        }
         await prisma.dmLog.update({
           where: {
             automationId_commentId: { automationId: automation.id, commentId },
@@ -548,8 +590,10 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
     // (opening DM → follow gate → link). Without an opening DM, we check follow
     // status at comment time: confirmed followers get the link now, everyone
     // else gets the "follow me first" prompt (re-verified on tap).
+    const isFacebook = automation.instagramAccount.platform === "FACEBOOK";
+
     let sendFollowPrompt = false;
-    if (automation.requireFollow && !useOpeningDm) {
+    if (automation.requireFollow && !useOpeningDm && !isFacebook) {
       const alreadyFollows = await getUserFollowStatus(accessToken, commenterId);
       sendFollowPrompt = alreadyFollows !== true;
     }
@@ -561,16 +605,27 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
           commenterName,
           trackedLinks: [],
         });
-        await sendPrivateReplyWithButton(
-          accessToken,
-          automation.instagramAccount.instagramId,
-          commentId,
-          openingText,
-          automation.openingDmButtonLabel as string,
-          automation.requireFollow
-            ? `followcheck:${automation.id}`
-            : `reveal:${automation.id}`
-        );
+        if (isFacebook) {
+          await sendFacebookPagePrivateReplyWithButton(
+            accessToken,
+            automation.instagramAccount.instagramId,
+            commentId,
+            openingText,
+            automation.openingDmButtonLabel as string,
+            `reveal:${automation.id}`
+          );
+        } else {
+          await sendPrivateReplyWithButton(
+            accessToken,
+            automation.instagramAccount.instagramId,
+            commentId,
+            openingText,
+            automation.openingDmButtonLabel as string,
+            automation.requireFollow
+              ? `followcheck:${automation.id}`
+              : `reveal:${automation.id}`
+          );
+        }
       } else if (sendFollowPrompt) {
         const promptText = renderMessageWithoutLink({
           message:
@@ -599,13 +654,23 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
         );
 
         try {
-          await sendPrivateReplyWithLinkButton(
-            accessToken,
-            automation.instagramAccount.instagramId,
-            commentId,
-            bodyText,
-            buttons
-          );
+          if (isFacebook) {
+            await sendFacebookPagePrivateReplyWithLinkButton(
+              accessToken,
+              automation.instagramAccount.instagramId,
+              commentId,
+              bodyText,
+              buttons
+            );
+          } else {
+            await sendPrivateReplyWithLinkButton(
+              accessToken,
+              automation.instagramAccount.instagramId,
+              commentId,
+              bodyText,
+              buttons
+            );
+          }
         } catch (buttonError) {
           // Only a template rejection is worth retrying as text. Anything else
           // (closed window, comment already replied to) fails the same way and
@@ -623,12 +688,21 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
             bodyText
           );
           try {
-            await sendPrivateReply(
-              accessToken,
-              automation.instagramAccount.instagramId,
-              commentId,
-              fallbackMessage
-            );
+            if (isFacebook) {
+              await sendFacebookPagePrivateReply(
+                accessToken,
+                automation.instagramAccount.instagramId,
+                commentId,
+                fallbackMessage
+              );
+            } else {
+              await sendPrivateReply(
+                accessToken,
+                automation.instagramAccount.instagramId,
+                commentId,
+                fallbackMessage
+              );
+            }
           } catch {
             // The first attempt consumed the comment's single private reply, so
             // this one reports "invalid for a private reply" no matter what the
@@ -642,12 +716,21 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
           commenterName,
           trackedLinks: automation.trackedLinks,
         });
-        await sendPrivateReply(
-          accessToken,
-          automation.instagramAccount.instagramId,
-          commentId,
-          dmMessage
-        );
+        if (isFacebook) {
+          await sendFacebookPagePrivateReply(
+            accessToken,
+            automation.instagramAccount.instagramId,
+            commentId,
+            dmMessage
+          );
+        } else {
+          await sendPrivateReply(
+            accessToken,
+            automation.instagramAccount.instagramId,
+            commentId,
+            dmMessage
+          );
+        }
       }
 
       await prisma.dmLog.update({
@@ -924,15 +1007,26 @@ async function processFollowUp(job: Job<ProcessFollowUpJob>): Promise<void> {
   }
 
   try {
-    await sendDirectMessage(
-      accessToken,
-      automation.instagramAccount.instagramId,
-      userId,
-      renderMessageWithoutLink({
-        message: automation.followUpMessage,
-        commenterName: commenterName ?? null,
-      })
-    );
+    const isFacebook = automation.instagramAccount.platform === "FACEBOOK";
+    const followUpText = renderMessageWithoutLink({
+      message: automation.followUpMessage,
+      commenterName: commenterName ?? null,
+    });
+    if (isFacebook) {
+      await sendFacebookPageDirectMessage(
+        accessToken,
+        automation.instagramAccount.instagramId,
+        userId,
+        followUpText
+      );
+    } else {
+      await sendDirectMessage(
+        accessToken,
+        automation.instagramAccount.instagramId,
+        userId,
+        followUpText
+      );
+    }
   } catch (error) {
     console.log(
       "[DM Worker] Failed to send follow-up message:",

@@ -15,6 +15,12 @@ const {
   mockQueueAdd,
   mockReserveWorkspaceDMSend,
   mockReleaseWorkspaceDMReservation,
+  mockSendFacebookPagePrivateReply,
+  mockSendFacebookPagePrivateReplyWithLinkButton,
+  mockSendFacebookPagePrivateReplyWithButton,
+  mockSendFacebookPageDirectMessage,
+  mockSendFacebookPageDirectMessageWithLinkButton,
+  mockSendFacebookPageCommentReply,
 } = vi.hoisted(() => ({
   mockPrisma: {
     automation: {
@@ -48,6 +54,12 @@ const {
   mockQueueAdd: vi.fn(),
   mockReserveWorkspaceDMSend: vi.fn(),
   mockReleaseWorkspaceDMReservation: vi.fn(),
+  mockSendFacebookPagePrivateReply: vi.fn(),
+  mockSendFacebookPagePrivateReplyWithLinkButton: vi.fn(),
+  mockSendFacebookPagePrivateReplyWithButton: vi.fn(),
+  mockSendFacebookPageDirectMessage: vi.fn(),
+  mockSendFacebookPageDirectMessageWithLinkButton: vi.fn(),
+  mockSendFacebookPageCommentReply: vi.fn(),
 }));
 
 vi.mock("@/lib/db/client", () => ({
@@ -63,6 +75,12 @@ vi.mock("@/lib/meta/client", () => ({
   sendDirectMessage: mockSendDirectMessage,
   sendDirectMessageWithLinkButton: mockSendDirectMessageWithLinkButton,
   sendCommentReply: vi.fn(),
+  sendFacebookPagePrivateReply: mockSendFacebookPagePrivateReply,
+  sendFacebookPagePrivateReplyWithLinkButton: mockSendFacebookPagePrivateReplyWithLinkButton,
+  sendFacebookPagePrivateReplyWithButton: mockSendFacebookPagePrivateReplyWithButton,
+  sendFacebookPageDirectMessage: mockSendFacebookPageDirectMessage,
+  sendFacebookPageDirectMessageWithLinkButton: mockSendFacebookPageDirectMessageWithLinkButton,
+  sendFacebookPageCommentReply: mockSendFacebookPageCommentReply,
   MetaApiError: class MetaApiError extends Error {
     code: number;
     constructor(
@@ -273,6 +291,29 @@ beforeEach(() => {
     message_id: "msg_006",
   });
   mockGetUserFollowStatus.mockResolvedValue(true);
+  mockSendFacebookPagePrivateReply.mockResolvedValue({
+    recipient_id: "commenter_999",
+    message_id: "fb_msg_001",
+  });
+  mockSendFacebookPagePrivateReplyWithLinkButton.mockResolvedValue({
+    recipient_id: "commenter_999",
+    message_id: "fb_msg_002",
+  });
+  mockSendFacebookPagePrivateReplyWithButton.mockResolvedValue({
+    recipient_id: "commenter_999",
+    message_id: "fb_msg_003",
+  });
+  mockSendFacebookPageDirectMessage.mockResolvedValue({
+    recipient_id: "commenter_999",
+    message_id: "fb_msg_004",
+  });
+  mockSendFacebookPageDirectMessageWithLinkButton.mockResolvedValue({
+    recipient_id: "commenter_999",
+    message_id: "fb_msg_005",
+  });
+  mockSendFacebookPageCommentReply.mockResolvedValue({
+    id: "fb_comment_reply_001",
+  });
 });
 
 describe("DM Worker — comments left on an ad", () => {
@@ -1119,6 +1160,68 @@ describe("DM Worker — DM keyword trigger", () => {
       expect.objectContaining({
         create: expect.objectContaining({ status: "FAILED" }),
       })
+    );
+  });
+});
+
+describe("DM Worker — Facebook Page video comments & private replies", () => {
+  it("should send a private reply via Facebook Graph API for matching comment on Facebook video", async () => {
+    const processor = getProcessor();
+
+    const fbAutomation = {
+      ...mockAutomation,
+      instagramAccount: {
+        ...mockAutomation.instagramAccount,
+        platform: "FACEBOOK",
+      },
+    };
+
+    mockPrisma.automation.findMany.mockResolvedValue([fbAutomation]);
+
+    await processor(
+      createMockJob({
+        ...mockJobData,
+        instagramAccountId: "fb_page_123",
+        mediaId: "fb_video_101",
+      })
+    );
+
+    expect(mockSendFacebookPagePrivateReply).toHaveBeenCalledWith(
+      "decrypted_token",
+      "ig_456",
+      "comment_555",
+      "Hey commenter_user! Here is the link: https://example.com"
+    );
+    expect(mockSendPrivateReply).not.toHaveBeenCalled();
+  });
+
+  it("should post a public comment reply via Facebook Graph API when enabled", async () => {
+    const processor = getProcessor();
+
+    const fbAutomation = {
+      ...mockAutomation,
+      publicReplyEnabled: true,
+      publicReplyMessage: "Obrigado pelo comentario!",
+      instagramAccount: {
+        ...mockAutomation.instagramAccount,
+        platform: "FACEBOOK",
+      },
+    };
+
+    mockPrisma.automation.findMany.mockResolvedValue([fbAutomation]);
+
+    await processor(
+      createMockJob({
+        ...mockJobData,
+        instagramAccountId: "fb_page_123",
+        mediaId: "fb_video_101",
+      })
+    );
+
+    expect(mockSendFacebookPageCommentReply).toHaveBeenCalledWith(
+      "decrypted_token",
+      "comment_555",
+      "Obrigado pelo comentario!"
     );
   });
 });

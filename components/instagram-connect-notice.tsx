@@ -37,9 +37,83 @@ const MESSAGES: Record<string, { tone: Tone; title: string; detail: string }> = 
   },
 };
 
+const FB_MESSAGES: Record<string, { tone: Tone; title: string; detail: string }> = {
+  connected: {
+    tone: "success",
+    title: "Página do Facebook conectada com sucesso",
+    detail:
+      "A sua página do Facebook foi vinculada e já está pronta para receber comentários e enviar mensagens privadas.",
+  },
+  denied: {
+    tone: "warning",
+    title: "Conexão com o Facebook cancelada",
+    detail:
+      "A autorização foi cancelada. Tente novamente concedendo acesso às suas Páginas.",
+  },
+  invalid: {
+    tone: "error",
+    title: "Link de login expirado",
+    detail:
+      "O link de autenticação expirou. Tente conectar novamente clicando em Conectar Página do Facebook.",
+  },
+  forbidden: {
+    tone: "error",
+    title: "Não permitido",
+    detail:
+      "Apenas proprietários e administradores do workspace podem conectar páginas.",
+  },
+  no_pages: {
+    tone: "warning",
+    title: "Nenhuma página encontrada",
+    detail:
+      "Não foram encontradas páginas do Facebook administradas pela conta conectada.",
+  },
+  error: {
+    tone: "error",
+    title: "Erro ao conectar Página do Facebook",
+    detail:
+      "Ocorreu um erro ao obter os tokens das suas páginas. Verifique se o seu App no Meta possui as permissões necessárias.",
+  },
+};
+
 export function InstagramConnectNotice() {
   const searchParams = useSearchParams();
   const status = searchParams.get("instagram");
+  const fbStatus = searchParams.get("facebook");
+
+  if (fbStatus) {
+    if (fbStatus === "misconfigured") {
+      const missing = (searchParams.get("missing") ?? "")
+        .split(",")
+        .filter(Boolean);
+
+      return (
+        <Notice tone="error" title="Configuração do Facebook incompleta">
+          <p>
+            Defina as variáveis de ambiente necessárias para a integração com o Facebook:
+          </p>
+          {missing.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {missing.map((name) => (
+                <li key={name} className="font-mono text-xs">
+                  {name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Notice>
+      );
+    }
+
+    const fbKnown = FB_MESSAGES[fbStatus];
+    if (fbKnown) {
+      return (
+        <Notice tone={fbKnown.tone} title={fbKnown.title}>
+          <p>{fbKnown.detail}</p>
+        </Notice>
+      );
+    }
+  }
 
   if (!status) return null;
 

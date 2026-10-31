@@ -133,6 +133,7 @@ model InstagramAccount {
   accessToken       String
   tokenExpiresAt    DateTime?
   webhookSubscribed Boolean  @default(false)
+  platform          String   @default("INSTAGRAM")
   connectedAt       DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

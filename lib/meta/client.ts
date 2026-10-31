@@ -772,3 +772,335 @@ export async function debugToken(inputToken: string, accessToken: string) {
   const response = await fetch(url.toString());
   return handleResponse(response);
 }
+
+export interface FacebookVideo {
+  id: string;
+  title?: string;
+  description?: string;
+  picture?: string;
+  created_time: string;
+  permalink_url?: string;
+}
+
+export interface FacebookPost {
+  id: string;
+  message?: string;
+  created_time: string;
+  permalink_url?: string;
+  full_picture?: string;
+}
+
+/**
+ * Send a private reply to a Facebook Page comment (on a video or post).
+ * Meta limits this to 1 private reply per comment ID within 7 days.
+ */
+export async function sendFacebookPagePrivateReply(
+  pageAccessToken: string,
+  pageId: string,
+  commentId: string,
+  message: string
+): Promise<{ recipient_id: string; message_id: string }> {
+  const response = await fetch(
+    `${facebookGraphBase()}/${pageId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${pageAccessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { comment_id: commentId },
+        message: { text: message },
+      }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+/**
+ * Send a private reply to a Facebook Page comment as a button template with a postback button.
+ */
+export async function sendFacebookPagePrivateReplyWithButton(
+  pageAccessToken: string,
+  pageId: string,
+  commentId: string,
+  text: string,
+  buttonTitle: string,
+  payload: string
+): Promise<{ recipient_id: string; message_id: string }> {
+  const response = await fetch(
+    `${facebookGraphBase()}/${pageId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${pageAccessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { comment_id: commentId },
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "button",
+              text: text.slice(0, 640),
+              buttons: [
+                { type: "postback", title: buttonTitle.slice(0, 20), payload },
+              ],
+            },
+          },
+        },
+      }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+/**
+ * Send a private reply to a Facebook Page comment as a button template with web_url link buttons.
+ */
+export async function sendFacebookPagePrivateReplyWithLinkButton(
+  pageAccessToken: string,
+  pageId: string,
+  commentId: string,
+  text: string,
+  buttons: LinkButton[]
+): Promise<{ recipient_id: string; message_id: string }> {
+  const response = await fetch(
+    `${facebookGraphBase()}/${pageId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${pageAccessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { comment_id: commentId },
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "button",
+              text: text.slice(0, 640),
+              buttons: toWebUrlButtons(buttons),
+            },
+          },
+        },
+      }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+/**
+ * Send a direct message to a user on Facebook Messenger by their PSID.
+ */
+export async function sendFacebookPageDirectMessage(
+  pageAccessToken: string,
+  pageId: string,
+  userId: string,
+  message: string
+): Promise<{ recipient_id: string; message_id: string }> {
+  const response = await fetch(
+    `${facebookGraphBase()}/${pageId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${pageAccessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { id: userId },
+        message: { text: message },
+      }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+/**
+ * Send a direct message to a user on Facebook Messenger as a button template with web_url link buttons.
+ */
+export async function sendFacebookPageDirectMessageWithLinkButton(
+  pageAccessToken: string,
+  pageId: string,
+  userId: string,
+  text: string,
+  buttons: LinkButton[]
+): Promise<{ recipient_id: string; message_id: string }> {
+  const response = await fetch(
+    `${facebookGraphBase()}/${pageId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${pageAccessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { id: userId },
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "button",
+              text: text.slice(0, 640),
+              buttons: toWebUrlButtons(buttons),
+            },
+          },
+        },
+      }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+/**
+ * Send a public reply to a Facebook Page comment.
+ * Endpoint: POST https://graph.facebook.com/{version}/{commentId}/comments
+ */
+export async function sendFacebookPageCommentReply(
+  pageAccessToken: string,
+  commentId: string,
+  message: string
+): Promise<{ id: string }> {
+  const response = await fetch(
+    `${facebookGraphBase()}/${commentId}/comments`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${pageAccessToken}`,
+      },
+      body: JSON.stringify({ message }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+/**
+ * Fetch video uploads published on a Facebook Page.
+ */
+export async function getFacebookPageVideos(
+  pageAccessToken: string,
+  pageId: string,
+  limit = 25
+): Promise<FacebookVideo[]> {
+  const url = new URL(`${facebookGraphBase()}/${pageId}/videos`);
+  url.searchParams.set(
+    "fields",
+    "id,title,description,picture,created_time,permalink_url"
+  );
+  url.searchParams.set("limit", String(limit));
+
+  const response = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${pageAccessToken}` },
+  });
+
+  const data = await handleResponse<{ data?: FacebookVideo[] }>(response);
+  return data.data ?? [];
+}
+
+/**
+ * Fetch published posts for a Facebook Page.
+ */
+export async function getFacebookPagePosts(
+  pageAccessToken: string,
+  pageId: string,
+  limit = 25
+): Promise<FacebookPost[]> {
+  const url = new URL(`${facebookGraphBase()}/${pageId}/published_posts`);
+  url.searchParams.set(
+    "fields",
+    "id,message,created_time,permalink_url,full_picture"
+  );
+  url.searchParams.set("limit", String(limit));
+
+  const response = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${pageAccessToken}` },
+  });
+
+  const data = await handleResponse<{ data?: FacebookPost[] }>(response);
+  return data.data ?? [];
+}
+
+/**
+ * Subscribe a Facebook Page to webhook events (feed and messaging).
+ */
+export async function subscribeFacebookPageToWebhooks(
+  pageId: string,
+  pageAccessToken: string
+): Promise<{ success: boolean }> {
+  const url = new URL(`${facebookGraphBase()}/${pageId}/subscribed_apps`);
+  url.searchParams.set("subscribed_fields", "feed,messages,messaging_postbacks");
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${pageAccessToken}`,
+    },
+  });
+
+  return handleResponse(response);
+}
+
+export interface FacebookPageAccount {
+  id: string;
+  name: string;
+  access_token: string;
+  category?: string;
+  picture?: {
+    data?: {
+      url?: string;
+    };
+  };
+}
+
+/**
+ * Exchange a short-lived user token for a 60-day long-lived Facebook user token.
+ */
+export async function getFacebookLongLivedToken(
+  shortLivedToken: string
+): Promise<{ accessToken: string; expiresIn: number }> {
+  const appId = process.env.FACEBOOK_APP_ID || requireEnv("INSTAGRAM_APP_ID");
+  const appSecret =
+    process.env.FACEBOOK_APP_SECRET || requireEnv("INSTAGRAM_APP_SECRET");
+
+  const url = new URL(`${facebookGraphBase()}/oauth/access_token`);
+  url.searchParams.set("grant_type", "fb_exchange_token");
+  url.searchParams.set("client_id", appId);
+  url.searchParams.set("client_secret", appSecret);
+  url.searchParams.set("fb_exchange_token", shortLivedToken);
+
+  const response = await fetch(url.toString());
+  const data = await handleResponse<TokenResponse>(response);
+
+  return {
+    accessToken: data.access_token,
+    expiresIn: data.expires_in ?? 5184000,
+  };
+}
+
+/**
+ * Fetch Facebook Pages that the user administers with their Page Access Tokens.
+ * Note: When queried using a long-lived user token, Page Access Tokens do not expire.
+ */
+export async function getFacebookUserPages(
+  userAccessToken: string
+): Promise<FacebookPageAccount[]> {
+  const url = new URL(`${facebookGraphBase()}/me/accounts`);
+  url.searchParams.set("fields", "id,name,access_token,category,picture");
+  url.searchParams.set("limit", "100");
+
+  const response = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${userAccessToken}` },
+  });
+
+  const data = await handleResponse<{ data?: FacebookPageAccount[] }>(response);
+  return data.data ?? [];
+}

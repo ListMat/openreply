@@ -5,7 +5,7 @@ import {
   randomBytes,
   timingSafeEqual,
 } from "crypto";
-import { getEncryptionKeyHex, requireEnv } from "@/lib/env";
+import { getEncryptionKeyHex, getMetaGraphApiVersion, requireEnv } from "@/lib/env";
 
 // Instagram API with Instagram Login authorizes on www.instagram.com. The old
 // api.instagram.com/oauth/authorize host belonged to the retired Basic Display
@@ -152,4 +152,58 @@ export function decryptToken(encryptedBase64: string): string {
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString(
     "utf8"
   );
+}
+
+const FACEBOOK_OAUTH_URL = "https://www.facebook.com/dialog/oauth";
+
+export function getFacebookAuthorizationUrl(
+  redirectUri: string,
+  state: string
+): string {
+  const appId = process.env.FACEBOOK_APP_ID || requireEnv("INSTAGRAM_APP_ID");
+  const params = new URLSearchParams({
+    client_id: appId,
+    redirect_uri: redirectUri,
+    scope:
+      "pages_show_list,pages_read_engagement,pages_manage_posts,pages_messaging",
+    response_type: "code",
+    state,
+  });
+
+  return `${FACEBOOK_OAUTH_URL}?${params.toString()}`;
+}
+
+export async function exchangeFacebookCodeForToken(
+  code: string,
+  redirectUri: string
+): Promise<{ accessToken: string }> {
+  const appId = process.env.FACEBOOK_APP_ID || requireEnv("INSTAGRAM_APP_ID");
+  const appSecret =
+    process.env.FACEBOOK_APP_SECRET || requireEnv("INSTAGRAM_APP_SECRET");
+
+  const url = new URL(
+    `https://graph.facebook.com/${getMetaGraphApiVersion()}/oauth/access_token`
+  );
+  url.searchParams.set("client_id", appId);
+  url.searchParams.set("client_secret", appSecret);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("code", code);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(
+      `Facebook token exchange failed: ${
+        error.error?.message || error.error_message || JSON.stringify(error)
+      }`
+    );
+  }
+
+  const data = await response.json();
+  return {
+    accessToken: data.access_token,
+  };
 }
